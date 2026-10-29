@@ -1,9 +1,9 @@
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from profile_app.models import Profile
+User = get_user_model()
 
 
 class RegistrationTests(APITestCase):
@@ -26,8 +26,8 @@ class RegistrationTests(APITestCase):
 
         user = User.objects.get(username='max')
         self.assertEqual(response.data['user_id'], user.id)
-        self.assertTrue(user.check_password('sicher123'))   # Passwort gehasht
-        self.assertEqual(user.profile.type, 'customer')      # Profil angelegt
+        self.assertTrue(user.check_password('sicher123'))
+        self.assertEqual(user.type, 'customer')
         self.assertEqual(response.data['token'], Token.objects.get(user=user).key)
 
     def test_password_mismatch_returns_400(self):
@@ -49,6 +49,12 @@ class RegistrationTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_missing_type_returns_400(self):
+        del self.valid_data['type']
+        response = self.client.post(self.url, self.valid_data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_missing_email_returns_400(self):
         del self.valid_data['email']
         response = self.client.post(self.url, self.valid_data, format='json')
@@ -61,8 +67,7 @@ class LoginTests(APITestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(
-            username='max', email='max@mail.de', password='sicher123')
-        Profile.objects.create(user=self.user, type='business')
+            username='max', email='max@mail.de', password='sicher123', type='business')
 
     def test_login_success(self):
         response = self.client.post(

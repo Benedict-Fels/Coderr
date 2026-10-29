@@ -1,4 +1,1 @@
-from django.contrib import admin
-from .models import Profile
-
-admin.site.register(Profile)
+# Der User (inkl. Profilfeldern) wird in auth_app/admin.py registriert.

@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.conf import settings
 from offers_app.models import OfferDetail
 
 
@@ -11,9 +11,9 @@ class Order(models.Model):
     ]
 
     customer_user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='customer_orders')
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='customer_orders')
     business_user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='business_orders')
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='business_orders')
     title = models.CharField(max_length=255)
     revisions = models.PositiveIntegerField()
     delivery_time_in_days = models.PositiveIntegerField()

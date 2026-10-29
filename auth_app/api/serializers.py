@@ -1,11 +1,13 @@
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from profile_app.models import Profile
+
+User = get_user_model()
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
     repeated_password = serializers.CharField(write_only=True)
-    type = serializers.ChoiceField(choices=Profile.TYPE_CHOICES, write_only=True)
+    # Explizit deklariert, weil type im Model blank=True hat, hier aber Pflicht ist
+    type = serializers.ChoiceField(choices=User.TYPE_CHOICES, write_only=True)
 
     class Meta:
         model = User
@@ -28,28 +30,4 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('repeated_password')
-        user_type = validated_data.pop('type')
-
-        user = User.objects.create_user(**validated_data)
-        Profile.objects.create(user=user, type=user_type)
-        return user
-
-
-class LoginSerializer(serializers.Serializer):
-    """Check email and password and return the matching user."""
-
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
-
-    def validate(self, data):
-        """Find the user by email and check the password."""
-        try:
-            user = User.objects.get(email=data["email"])
-        except User.DoesNotExist:
-            raise serializers.ValidationError("Invalid email or password.")
-
-        if not user.check_password(data["password"]):
-            raise serializers.ValidationError("Invalid email or password.")
-
-        data["user"] = user
-        return data
+        return User.objects.create_user(**validated_data)

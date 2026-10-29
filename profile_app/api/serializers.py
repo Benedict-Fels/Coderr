@@ -1,37 +1,34 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from profile_app.models import Profile
+
+User = get_user_model()
 
 
 class ProfileSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username', read_only=True)
-    first_name = serializers.CharField(source='user.first_name', required=False, allow_blank=True)
-    last_name = serializers.CharField(source='user.last_name', required=False, allow_blank=True)
-    email = serializers.EmailField(source='user.email', required=False)
+    # Model heißt id / date_joined, die Doku will user / created_at -> umbenennen per source
+    user = serializers.IntegerField(source='id', read_only=True)
+    created_at = serializers.DateTimeField(source='date_joined', read_only=True)
 
     class Meta:
-        model = Profile
+        model = User
         fields = [
             'user', 'username', 'first_name', 'last_name', 'file', 'location',
             'tel', 'description', 'working_hours', 'type', 'email', 'created_at',
         ]
-        read_only_fields = ['user', 'type', 'created_at']
+        read_only_fields = ['username', 'type']
 
-    def update(self, instance, validated_data):
-        user_data = validated_data.pop('user', {})
-        for attr, value in user_data.items():
-            setattr(instance.user, attr, value)
-        instance.user.save()
-
-        return super().update(instance, validated_data)
+    def validate_email(self, value):
+        # Wie bei der Registrierung: keine doppelten E-Mails (die eigene zählt nicht)
+        if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError('Diese E-Mail wird bereits verwendet.')
+        return value
 
 
 class BusinessProfileListSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username', read_only=True)
-    first_name = serializers.CharField(source='user.first_name', read_only=True)
-    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    user = serializers.IntegerField(source='id', read_only=True)
 
     class Meta:
-        model = Profile
+        model = User
         fields = [
             'user', 'username', 'first_name', 'last_name', 'file',
             'location', 'tel', 'description', 'working_hours', 'type',
@@ -39,11 +36,9 @@ class BusinessProfileListSerializer(serializers.ModelSerializer):
 
 
 class CustomerProfileListSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username', read_only=True)
-    first_name = serializers.CharField(source='user.first_name', read_only=True)
-    last_name = serializers.CharField(source='user.last_name', read_only=True)
-    uploaded_at = serializers.DateTimeField(source='created_at', read_only=True)
+    user = serializers.IntegerField(source='id', read_only=True)
+    uploaded_at = serializers.DateTimeField(source='date_joined', read_only=True)
 
     class Meta:
-        model = Profile
+        model = User
         fields = ['user', 'username', 'first_name', 'last_name', 'file', 'uploaded_at', 'type']

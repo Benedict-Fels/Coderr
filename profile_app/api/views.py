@@ -1,27 +1,28 @@
+from django.contrib.auth import get_user_model
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
-from profile_app.models import Profile
 from .permissions import IsProfileOwnerOrReadOnly
 from .serializers import (
     ProfileSerializer, BusinessProfileListSerializer, CustomerProfileListSerializer,
 )
 
+User = get_user_model()
+
 
 class ProfileDetailView(generics.RetrieveUpdateAPIView):
-    queryset = Profile.objects.select_related('user')
+    # <pk> in der URL ist jetzt einfach die User-ID -> kein lookup_field mehr nötig
+    queryset = User.objects.all()
     serializer_class = ProfileSerializer
     permission_classes = [IsAuthenticated, IsProfileOwnerOrReadOnly]
-    lookup_field = 'user'
-    lookup_url_kwarg = 'pk'
     http_method_names = ['get', 'patch']
 
 
 class BusinessProfileListView(generics.ListAPIView):
-    queryset = Profile.objects.filter(type='business').select_related('user')
+    queryset = User.objects.filter(type='business')
     serializer_class = BusinessProfileListSerializer
 
 
 class CustomerProfileListView(generics.ListAPIView):
-    queryset = Profile.objects.filter(type='customer').select_related('user')
+    queryset = User.objects.filter(type='customer')
     serializer_class = CustomerProfileListSerializer
