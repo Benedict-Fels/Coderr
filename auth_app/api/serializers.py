@@ -33,3 +33,23 @@ class RegistrationSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(**validated_data)
         Profile.objects.create(user=user, type=user_type)
         return user
+
+
+class LoginSerializer(serializers.Serializer):
+    """Check email and password and return the matching user."""
+
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        """Find the user by email and check the password."""
+        try:
+            user = User.objects.get(email=data["email"])
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Invalid email or password.")
+
+        if not user.check_password(data["password"]):
+            raise serializers.ValidationError("Invalid email or password.")
+
+        data["user"] = user
+        return data
