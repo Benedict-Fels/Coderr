@@ -14,8 +14,6 @@ class Order(models.Model):
         User, on_delete=models.CASCADE, related_name='customer_orders')
     business_user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='business_orders')
-
-    # Momentaufnahme des OfferDetails zum Bestellzeitpunkt
     title = models.CharField(max_length=255)
     revisions = models.PositiveIntegerField()
     delivery_time_in_days = models.PositiveIntegerField()
