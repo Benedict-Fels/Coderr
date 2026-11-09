@@ -5,6 +5,7 @@ class IsProfileOwnerOrReadOnly(BasePermission):
     """Everyone logged in may read, only the owner may edit."""
 
     def has_object_permission(self, request, view, user):
+        """Allow safe methods for all, changes only for the owner."""
         if request.method in SAFE_METHODS:
             return True
         return user == request.user

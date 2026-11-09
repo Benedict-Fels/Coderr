@@ -4,14 +4,20 @@ from rest_framework.permissions import IsAuthenticated
 
 from .permissions import IsProfileOwnerOrReadOnly
 from .serializers import (
-    ProfileSerializer, BusinessProfileListSerializer, CustomerProfileListSerializer,
+    BusinessProfileListSerializer,
+    CustomerProfileListSerializer,
+    ProfileSerializer,
 )
 
 User = get_user_model()
 
 
 class ProfileDetailView(generics.RetrieveUpdateAPIView):
-    # <pk> in der URL ist jetzt einfach die User-ID -> kein lookup_field mehr nötig
+    """Show any profile and let the owner update it.
+
+    The pk in the URL is the user id.
+    """
+
     queryset = User.objects.all()
     serializer_class = ProfileSerializer
     permission_classes = [IsAuthenticated, IsProfileOwnerOrReadOnly]
@@ -19,10 +25,14 @@ class ProfileDetailView(generics.RetrieveUpdateAPIView):
 
 
 class BusinessProfileListView(generics.ListAPIView):
+    """List all business users."""
+
     queryset = User.objects.filter(type='business')
     serializer_class = BusinessProfileListSerializer
 
 
 class CustomerProfileListView(generics.ListAPIView):
+    """List all customers."""
+
     queryset = User.objects.filter(type='customer')
     serializer_class = CustomerProfileListSerializer

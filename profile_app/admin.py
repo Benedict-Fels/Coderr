@@ -1,1 +1,1 @@
-# Der User (inkl. Profilfeldern) wird in auth_app/admin.py registriert.
+"""The user and its profile fields are registered in auth_app.admin."""

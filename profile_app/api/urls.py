@@ -1,5 +1,10 @@
 from django.urls import path
-from .views import BusinessProfileListView, CustomerProfileListView, ProfileDetailView
+
+from .views import (
+    BusinessProfileListView,
+    CustomerProfileListView,
+    ProfileDetailView,
+)
 
 urlpatterns = [
     path('profile/<int:pk>/', ProfileDetailView.as_view()),
