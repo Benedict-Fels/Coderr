@@ -2,15 +2,18 @@ from django.db.models import Min
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics
 from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.permissions import IsAuthenticated
 
 from offers_app.models import Offer, OfferDetail
 from .filters import OfferFilter
 from .pagination import OfferPagination
-from .permissions import IsBusinessOrReadOnly
+from .permissions import IsBusinessOrReadOnly, IsOfferOwnerOrReadOnly
 from .serializers import (
     OfferCreateSerializer,
     OfferDetailSerializer,
     OfferListSerializer,
+    OfferRetrieveSerializer,
+    OfferUpdateSerializer,
 )
 
 
@@ -51,6 +54,23 @@ class OfferListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         """Save the logged-in user as creator, never the request body."""
         serializer.save(user=self.request.user)
+
+
+class OfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """Show an offer to logged-in users, let its creator edit or delete it."""
+
+    permission_classes = [IsAuthenticated, IsOfferOwnerOrReadOnly]
+    http_method_names = ['get', 'patch', 'delete']
+
+    def get_queryset(self):
+        """Return the offers including their computed minimum values."""
+        return offers_with_min_values()
+
+    def get_serializer_class(self):
+        """Use the update serializer for PATCH, the read one otherwise."""
+        if self.request.method == 'PATCH':
+            return OfferUpdateSerializer
+        return OfferRetrieveSerializer
 
 
 class OfferDetailRetrieveView(generics.RetrieveAPIView):

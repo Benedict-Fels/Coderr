@@ -39,8 +39,8 @@ class UserDetailsSerializer(serializers.ModelSerializer):
         fields = ['first_name', 'last_name', 'username']
 
 
-class OfferListSerializer(serializers.ModelSerializer):
-    """Offer as shown in the list, with values computed from its details.
+class OfferRetrieveSerializer(serializers.ModelSerializer):
+    """A single offer with links to its details and its minimum values.
 
     min_price and min_delivery_time are annotated by the queryset.
     """
@@ -49,15 +49,22 @@ class OfferListSerializer(serializers.ModelSerializer):
     min_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True)
     min_delivery_time = serializers.IntegerField(read_only=True)
-    user_details = UserDetailsSerializer(source='user', read_only=True)
 
     class Meta:
         model = Offer
         fields = [
             'id', 'user', 'title', 'image', 'description', 'created_at',
             'updated_at', 'details', 'min_price', 'min_delivery_time',
-            'user_details',
         ]
+
+
+class OfferListSerializer(OfferRetrieveSerializer):
+    """Offer as shown in the list, additionally with the creator's name."""
+
+    user_details = UserDetailsSerializer(source='user', read_only=True)
+
+    class Meta(OfferRetrieveSerializer.Meta):
+        fields = OfferRetrieveSerializer.Meta.fields + ['user_details']
 
 
 class OfferCreateSerializer(serializers.ModelSerializer):
@@ -89,3 +96,45 @@ class OfferCreateSerializer(serializers.ModelSerializer):
             for detail_data in details_data:
                 OfferDetail.objects.create(offer=offer, **detail_data)
         return offer
+
+
+class OfferUpdateSerializer(serializers.ModelSerializer):
+    """Partially update an offer and single details by their offer_type."""
+
+    details = OfferDetailSerializer(many=True, required=False)
+
+    class Meta:
+        model = Offer
+        fields = ['id', 'title', 'image', 'description', 'details']
+
+    def validate_details(self, value):
+        """Each detail needs a unique offer_type that the offer has."""
+        offer_types = [detail.get('offer_type') for detail in value]
+        if None in offer_types:
+            raise serializers.ValidationError(
+                'Jedes Detail braucht einen offer_type.')
+        if len(offer_types) != len(set(offer_types)):
+            raise serializers.ValidationError(
+                'Jeder offer_type darf nur einmal vorkommen.')
+        existing = set(
+            self.instance.details.values_list('offer_type', flat=True))
+        if not set(offer_types) <= existing:
+            raise serializers.ValidationError(
+                'Unbekannter offer_type für dieses Angebot.')
+        return value
+
+    def update(self, instance, validated_data):
+        """Update the offer fields and the sent details, keeping their ids."""
+        details_data = validated_data.pop('details', [])
+        with transaction.atomic():
+            instance = super().update(instance, validated_data)
+            for detail_data in details_data:
+                self.update_detail(instance, detail_data)
+        return instance
+
+    def update_detail(self, offer, detail_data):
+        """Overwrite the sent fields of the detail with that offer_type."""
+        detail = offer.details.get(offer_type=detail_data['offer_type'])
+        for field, value in detail_data.items():
+            setattr(detail, field, value)
+        detail.save()

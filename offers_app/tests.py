@@ -259,3 +259,119 @@ class OfferDetailRetrieveTests(APITestCase):
         response = self.client.get('/api/offerdetails/9999/')
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class OfferSingleTests(APITestCase):
+    """Tests for GET, PATCH and DELETE /api/offers/{id}/."""
+
+    def setUp(self):
+        """Create an offer of the owner and a second business user."""
+        self.owner = User.objects.create_user(
+            username='owner', password='x', type='business')
+        self.other = User.objects.create_user(
+            username='other', password='x', type='business')
+        self.offer = create_offer(
+            self.owner, 'Logo', [100, 200, 300], [5, 7, 10])
+        self.url = f'/api/offers/{self.offer.id}/'
+
+    def patch_as(self, user, data):
+        """Send a PATCH request with the given data as the given user."""
+        self.client.force_authenticate(user=user)
+        return self.client.patch(self.url, data, format='json')
+
+    def test_get_offer(self):
+        """Logged-in users see the offer with its minimum values."""
+        self.client.force_authenticate(user=self.other)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user'], self.owner.id)
+        self.assertEqual(response.data['min_price'], 100)
+        self.assertEqual(response.data['min_delivery_time'], 5)
+        self.assertNotIn('user_details', response.data)
+
+    def test_get_requires_authentication(self):
+        """A single offer is only visible to logged-in users."""
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_unknown_offer_returns_404(self):
+        """An unknown id returns 404."""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.get('/api/offers/9999/')
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_owner_can_patch_title_and_one_detail(self):
+        """Only the sent detail changes and keeps its id."""
+        basic = self.offer.details.get(offer_type='basic')
+        data = {
+            'title': 'Logo Neu',
+            'details': [{'offer_type': 'basic', 'price': 120}],
+        }
+        response = self.patch_as(self.owner, data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['title'], 'Logo Neu')
+        self.assertEqual(len(response.data['details']), 3)
+        basic.refresh_from_db()
+        self.assertEqual(basic.price, 120)
+        self.assertEqual(basic.title, 'basic')
+        standard = self.offer.details.get(offer_type='standard')
+        self.assertEqual(standard.price, 200)
+        self.assertEqual(OfferDetail.objects.count(), 3)
+
+    def test_patch_response_shows_new_values(self):
+        """The response contains the updated detail values."""
+        data = {'details': [{'offer_type': 'premium', 'revisions': 9}]}
+        response = self.patch_as(self.owner, data)
+
+        premium = [
+            detail for detail in response.data['details']
+            if detail['offer_type'] == 'premium'
+        ][0]
+        self.assertEqual(premium['revisions'], 9)
+
+    def test_other_user_cannot_patch(self):
+        """Only the creator may change the offer."""
+        response = self.patch_as(self.other, {'title': 'Gehackt'})
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.offer.refresh_from_db()
+        self.assertEqual(self.offer.title, 'Logo')
+
+    def test_patch_detail_without_offer_type_returns_400(self):
+        """A detail can only be identified by its offer_type."""
+        data = {'details': [{'price': 1}]}
+        response = self.patch_as(self.owner, data)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_patch_duplicate_offer_type_returns_400(self):
+        """The same offer_type may not be sent twice."""
+        data = {'details': [
+            {'offer_type': 'basic', 'price': 1},
+            {'offer_type': 'basic', 'price': 2},
+        ]}
+        response = self.patch_as(self.owner, data)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_owner_can_delete(self):
+        """Deleting an offer also deletes its details."""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Offer.objects.filter(id=self.offer.id).exists())
+        self.assertEqual(OfferDetail.objects.count(), 0)
+
+    def test_other_user_cannot_delete(self):
+        """Only the creator may delete the offer."""
+        self.client.force_authenticate(user=self.other)
+        response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Offer.objects.filter(id=self.offer.id).exists())
