@@ -7,5 +7,4 @@ class IsProfileOwnerOrReadOnly(BasePermission):
     def has_object_permission(self, request, view, user):
         if request.method in SAFE_METHODS:
             return True
-        # Profil und User sind jetzt dasselbe Objekt -> direkt vergleichen
         return user == request.user

@@ -6,7 +6,6 @@ User = get_user_model()
 
 class RegistrationSerializer(serializers.ModelSerializer):
     repeated_password = serializers.CharField(write_only=True)
-    # Explizit deklariert, weil type im Model blank=True hat, hier aber Pflicht ist
     type = serializers.ChoiceField(choices=User.TYPE_CHOICES, write_only=True)
 
     class Meta:

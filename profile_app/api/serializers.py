@@ -5,7 +5,6 @@ User = get_user_model()
 
 
 class ProfileSerializer(serializers.ModelSerializer):
-    # Model heißt id / date_joined, die Doku will user / created_at -> umbenennen per source
     user = serializers.IntegerField(source='id', read_only=True)
     created_at = serializers.DateTimeField(source='date_joined', read_only=True)
 
@@ -18,7 +17,6 @@ class ProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['username', 'type']
 
     def validate_email(self, value):
-        # Wie bei der Registrierung: keine doppelten E-Mails (die eigene zählt nicht)
         if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists():
             raise serializers.ValidationError('Diese E-Mail wird bereits verwendet.')
         return value
